@@ -50,26 +50,59 @@ class Transaction:
             table_data[col].append(values[idx])
         print(f"Row inserted into '{table}'.")
 
-    def read_table(self, table):
+    def read_table(self, table, selected_columns=None, order_by=None, limit=None):
         data = self.tm.table_data.get(table) if self.is_read_only else self.data.get(table)
         if not data:
             print("Table does not exist.")
             return
-        headers = list(data.keys())
-        print(",".join(headers))
-        for i in range(len(data[headers[0]])):
-            print(",".join(data[h][i] for h in headers))
+        headers = selected_columns if selected_columns else list(data.keys())
+        rows = list(zip(*[data[h] for h in headers]))
 
-    def read_table_with_condition(self, table, column, value):
-        data = self.tm.table_data.get(table) if self.is_read_only else self.data.get(table)
-        if column not in data:
-            print("Table or column does not exist.")
-            return
-        headers = list(data.keys())
+        if order_by and order_by in data:
+            order_idx = headers.index(order_by) if selected_columns else list(data.keys()).index(order_by)
+            rows.sort(key=lambda x: x[order_idx])
+
+        if limit is not None:
+            rows = rows[:limit]
+
         print(",".join(headers))
+        for row in rows:
+            print(",".join(row))
+
+    def read_table_with_condition(self, table, column, value, selected_columns=None, order_by=None, limit=None):
+        data = self.tm.table_data.get(table) if self.is_read_only else self.data.get(table)
+        if not data:
+            print("Table does not exist.")
+            return
+        if column not in data:
+            print(f"WHERE column '{column}' does not exist.")
+            return
+
+        headers = selected_columns if selected_columns else list(data.keys())
+        for h in headers:
+            if h not in data:
+                print(f"Selected column '{h}' does not exist.")
+                return
+        if order_by and order_by not in data:
+            print(f"ORDER BY column '{order_by}' does not exist.")
+            return
+
+        matching_rows = []
         for i in range(len(data[column])):
             if data[column][i] == value:
-                print(",".join(data[h][i] for h in headers))
+                matching_rows.append(tuple(data[h][i] for h in headers))
+
+
+        if order_by:
+            order_idx = headers.index(order_by)
+            matching_rows.sort(key=lambda x: x[order_idx])
+
+        if limit is not None:
+            matching_rows = matching_rows[:limit]
+
+        print(",".join(headers))
+        for row in matching_rows:
+            print(",".join(row))
 
     def update_rows(self, table, set_col, new_val, where_col, where_val):
         if self.is_read_only:
